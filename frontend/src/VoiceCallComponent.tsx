@@ -8,7 +8,9 @@ const VoiceChat = () => {
     const localAudioRef = useRef(null);
 
     useEffect(() => {
-        const newSocket = io('https://iwbnn.shop');
+        // WebSocket URL을 직접 하드코딩
+        const websocketUrl = 'wss://iwbnn.shop/ws';
+        const newSocket = io(websocketUrl);
         setSocket(newSocket);
 
         navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
