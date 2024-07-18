@@ -1,11 +1,16 @@
 import React, { useEffect, useRef, useState } from 'react';
-import io from 'socket.io-client';
+import io, { Socket } from 'socket.io-client';
+import kurentoUtils from 'kurento-utils';
 
-const VoiceChat = () => {
-    const [socket, setSocket] = useState(null);
-    const [localStream, setLocalStream] = useState(null);
-    const [participants, setParticipants] = useState({});
-    const localAudioRef = useRef(null);
+interface Participant {
+    webRtcPeer: any;
+}
+
+const VoiceChat: React.FC = () => {
+    const [socket, setSocket] = useState<Socket | null>(null);
+    const [localStream, setLocalStream] = useState<MediaStream | null>(null);
+    const [participants, setParticipants] = useState<{ [key: string]: Participant }>({});
+    const localAudioRef = useRef<HTMLAudioElement>(null);
 
     useEffect(() => {
         // WebSocket URL을 직접 하드코딩
@@ -13,9 +18,11 @@ const VoiceChat = () => {
         const newSocket = io(websocketUrl);
         setSocket(newSocket);
 
-        navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
+        navigator.mediaDevices.getUserMedia({ audio: true }).then((stream) => {
             setLocalStream(stream);
-            localAudioRef.current.srcObject = stream;
+            if (localAudioRef.current) {
+                localAudioRef.current.srcObject = stream;
+            }
         });
 
         newSocket.on('message', handleSignalingMessage);
@@ -25,7 +32,7 @@ const VoiceChat = () => {
         };
     }, []);
 
-    const handleSignalingMessage = (message) => {
+    const handleSignalingMessage = (message: any) => {
         switch (message.id) {
             case 'existingParticipants':
                 onExistingParticipants(message);
@@ -48,22 +55,24 @@ const VoiceChat = () => {
     };
 
     const joinRoom = () => {
-        const message = {
-            id: 'joinRoom',
-            room: 'testRoom'
-        };
-        socket.emit('message', message);
+        if (socket) {
+            const message = {
+                id: 'joinRoom',
+                room: 'testRoom'
+            };
+            socket.emit('message', message);
+        }
     };
 
-    const onExistingParticipants = (message) => {
+    const onExistingParticipants = (message: any) => {
         const constraints = {
             audio: true
         };
-        const participant = new kurentoUtils.WebRtcPeer.WebRtcPeerSendonly(constraints, function (error) {
+        const participant = new kurentoUtils.WebRtcPeer.WebRtcPeerSendonly(constraints, (error: any) => {
             if (error) {
                 return console.error(error);
             }
-            this.generateOffer((error, offerSdp) => {
+            participant.generateOffer((error: any, offerSdp: any) => {
                 if (error) {
                     return console.error(error);
                 }
@@ -72,29 +81,31 @@ const VoiceChat = () => {
                     sender: 'me',
                     sdpOffer: offerSdp
                 };
-                socket.emit('message', message);
+                if (socket) {
+                    socket.emit('message', message);
+                }
             });
         });
-        setParticipants((prev) => ({ ...prev, 'me': participant }));
+        setParticipants((prev) => ({ ...prev, 'me': { webRtcPeer: participant } }));
 
-        message.data.forEach((participantId) => {
+        message.data.forEach((participantId: string) => {
             receiveVideoFrom(participantId);
         });
     };
 
-    const onNewParticipant = (message) => {
+    const onNewParticipant = (message: any) => {
         receiveVideoFrom(message.newParticipantId);
     };
 
-    const receiveVideoFrom = (participantId) => {
+    const receiveVideoFrom = (participantId: string) => {
         const constraints = {
             audio: true
         };
-        const participant = new kurentoUtils.WebRtcPeer.WebRtcPeerRecvonly(constraints, function (error) {
+        const participant = new kurentoUtils.WebRtcPeer.WebRtcPeerRecvonly(constraints, (error: any) => {
             if (error) {
                 return console.error(error);
             }
-            this.generateOffer((error, offerSdp) => {
+            participant.generateOffer((error: any, offerSdp: any) => {
                 if (error) {
                     return console.error(error);
                 }
@@ -103,24 +114,45 @@ const VoiceChat = () => {
                     sender: participantId,
                     sdpOffer: offerSdp
                 };
-                socket.emit('message', message);
+                if (socket) {
+                    socket.emit('message', message);
+                }
             });
         });
-        setParticipants((prev) => ({ ...prev, [participantId]: participant }));
+        setParticipants((prev) => ({ ...prev, [participantId]: { webRtcPeer: participant } }));
     };
 
-    const receiveVideoResponse = (message) => {
+    const receiveVideoResponse = (message: any) => {
         const participant = participants[message.sender];
-        participant.processAnswer(message.sdpAnswer);
+        participant.webRtcPeer.processAnswer(message.sdpAnswer);
     };
 
-    const addIceCandidate = (message) => {
+    const addIceCandidate = (message: any) => {
         const participant = participants[message.sender];
-        participant.addIceCandidate(message.candidate);
+        participant.webRtcPeer.addIceCandidate(message.candidate);
     };
 
-    const onParticipantLeft = (message) => {
+    const onParticipantLeft = (message: any) => {
         const participant = participants[message.name];
         if (participant) {
-            participant.dispose();
-            delete participants
+            participant.webRtcPeer.dispose();
+            setParticipants((prev) => {
+                const newParticipants = { ...prev };
+                delete newParticipants[message.name];
+                return newParticipants;
+            });
+        }
+    };
+
+    return (
+        <div>
+            <audio ref={localAudioRef} autoPlay muted />
+            <button onClick={joinRoom}>Join Room</button>
+            {Object.keys(participants).map((key) => (
+                <audio key={key} ref={(audio) => { if (audio) participants[key].webRtcPeer.getRemoteStream() }} autoPlay />
+            ))}
+        </div>
+    );
+};
+
+export default VoiceChat;
