@@ -123,24 +123,4 @@ const VoiceChat = () => {
         const participant = participants[message.name];
         if (participant) {
             participant.dispose();
-            delete participants[message.name];
-            setParticipants((prev) => {
-                const newParticipants = { ...prev };
-                delete newParticipants[message.name];
-                return newParticipants;
-            });
-        }
-    };
-
-    return (
-        <div>
-            <audio ref={localAudioRef} autoPlay muted />
-            <button onClick={joinRoom}>Join Room</button>
-            {Object.keys(participants).map((key) => (
-                <audio key={key} ref={(audio) => { if (audio) participants[key].stream = audio.srcObject }} autoPlay />
-            ))}
-        </div>
-    );
-};
-
-export default VoiceChat;
+            delete participants
