@@ -8,7 +8,7 @@ const VoiceChat = () => {
     const localAudioRef = useRef(null);
 
     useEffect(() => {
-        const newSocket = io('http://localhost:8080');
+        const newSocket = io('https://iwbnn.shop');
         setSocket(newSocket);
 
         navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
