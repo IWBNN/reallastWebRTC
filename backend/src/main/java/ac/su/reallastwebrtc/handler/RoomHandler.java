@@ -1,11 +1,14 @@
-package ac.su.reallastwebrtc.handler;// RoomHandler.java
+// RoomHandler.java
+package ac.su.reallastwebrtc.handler;
+
 import org.kurento.client.KurentoClient;
 import org.kurento.client.MediaPipeline;
 import org.kurento.client.WebRtcEndpoint;
-import org.springframework.web.socket.CloseStatus;
+import org.kurento.client.IceCandidate;
 import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.handler.TextWebSocketHandler;
+import org.springframework.web.socket.CloseStatus;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.util.Map;
@@ -53,9 +56,9 @@ public class RoomHandler extends TextWebSocketHandler {
 
         webRtcEndpoint.addIceCandidateFoundListener(event -> {
             Map<String, Object> response = Map.of(
-                "id", "iceCandidate",
-                "candidate", event.getCandidate(),
-                "sender", session.getId()
+                    "id", "iceCandidate",
+                    "candidate", event.getCandidate(),
+                    "sender", session.getId()
             );
             try {
                 session.sendMessage(new TextMessage(objectMapper.writeValueAsString(response)));
@@ -67,8 +70,8 @@ public class RoomHandler extends TextWebSocketHandler {
         webRtcEndpoint.connect(webRtcEndpoint);
 
         Map<String, Object> response = Map.of(
-            "id", "existingParticipants",
-            "data", sessions.keySet()
+                "id", "existingParticipants",
+                "data", sessions.keySet()
         );
         session.sendMessage(new TextMessage(objectMapper.writeValueAsString(response)));
     }
@@ -86,16 +89,23 @@ public class RoomHandler extends TextWebSocketHandler {
         receiverEndpoint.gatherCandidates();
 
         Map<String, Object> response = Map.of(
-            "id", "receiveVideoAnswer",
-            "sdpAnswer", sdpAnswer,
-            "sender", sender
+                "id", "receiveVideoAnswer",
+                "sdpAnswer", sdpAnswer,
+                "sender", sender
         );
         session.sendMessage(new TextMessage(objectMapper.writeValueAsString(response)));
     }
 
     private void onIceCandidate(WebSocketSession session, Map<String, Object> payload) {
         String sender = (String) payload.get("sender");
-        Map<String, Object> candidate = (Map<String, Object>) payload.get("candidate");
+        Map<String, Object> candidateMap = (Map<String, Object>) payload.get("candidate");
+
+        IceCandidate candidate = new IceCandidate(
+                (String) candidateMap.get("candidate"),
+                (String) candidateMap.get("sdpMid"),
+                (int) candidateMap.get("sdpMLineIndex")
+        );
+
         webRtcEndpoints.get(sender).addIceCandidate(candidate);
     }
 
