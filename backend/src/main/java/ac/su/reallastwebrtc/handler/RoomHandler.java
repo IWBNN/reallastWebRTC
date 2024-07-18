@@ -1,21 +1,21 @@
-// RoomHandler.java
 package ac.su.reallastwebrtc.handler;
 
-import org.kurento.client.KurentoClient;
-import org.kurento.client.MediaPipeline;
-import org.kurento.client.WebRtcEndpoint;
-import org.kurento.client.IceCandidate;
-import org.springframework.web.socket.TextMessage;
-import org.springframework.web.socket.WebSocketSession;
+import org.kurento.client.*;
+import org.springframework.web.socket.*;
 import org.springframework.web.socket.handler.TextWebSocketHandler;
-import org.springframework.web.socket.CloseStatus;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
+@Component
 public class RoomHandler extends TextWebSocketHandler {
-    private final KurentoClient kurentoClient = KurentoClient.create();
+
+    @Autowired
+    private KurentoClient kurentoClient;
+
     private final Map<String, WebSocketSession> sessions = new ConcurrentHashMap<>();
     private final Map<String, MediaPipeline> pipelines = new ConcurrentHashMap<>();
     private final Map<String, WebRtcEndpoint> webRtcEndpoints = new ConcurrentHashMap<>();
@@ -103,7 +103,7 @@ public class RoomHandler extends TextWebSocketHandler {
         IceCandidate candidate = new IceCandidate(
                 (String) candidateMap.get("candidate"),
                 (String) candidateMap.get("sdpMid"),
-                (int) candidateMap.get("sdpMLineIndex")
+                ((Number) candidateMap.get("sdpMLineIndex")).intValue()
         );
 
         webRtcEndpoints.get(sender).addIceCandidate(candidate);
